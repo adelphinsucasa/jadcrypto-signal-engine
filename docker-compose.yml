@@ -1,1 +1,60 @@
+# ─────────────────────────────────────────────────────────────
+# JadCrypto Signal Engine — Infraestructura local
+# Levanta PostgreSQL + PgAdmin para el backend.
+#
+# Uso:
+#   docker compose up -d            # arrancar
+#   docker compose down -v          # parar y borrar volúmenes
+#   docker compose logs -f postgres # ver logs
+#
+# Conexión PgAdmin: http://localhost:5050
+#   Email:    admin@jadcrypto.local
+#   Password: admin
+# ─────────────────────────────────────────────────────────────
 
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jadcrypto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jadcrypto
+      POSTGRES_PASSWORD: jadcrypto_dev
+      POSTGRES_DB: jadcrypto
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jadcrypto -d jadcrypto"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: jadcrypto-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@jadcrypto.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+    name: jadcrypto-postgres-data
+  pgadmin_data:
+    name: jadcrypto-pgadmin-data
+
+networks:
+  default:
+    name: jadcrypto-net

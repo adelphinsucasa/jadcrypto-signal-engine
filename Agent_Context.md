@@ -31,6 +31,42 @@ Construir un sistema modular full-stack para escanear el mercado de Futuros de B
 - **Persistencia y Sonido:** Alerta con loop continuo de audio y vibración hasta ser descartada por el usuario.
 - **Histórico:** Las alertas enviadas deben guardarse en PostgreSQL y sincronizarse con la vista de historial de la App.
 
+## ESTRATEGIA DE IDEMPOTENCIA EN ENTIDADES BACKEND
+- **Campo deduplicador:** la entidad `Alert` debe incluir `idempotencyKey: string` único por escenario SMC detectado.
+- **Formato canónico de la clave:**
+  `<SYMBOL>-<DIRECTION>-<TIMEFRAME>-<EPOCH_MS_DE_DETECCION>`
+  Ejemplo: `BTCUSDT-LONG-1m-1724083200000`.
+- **Regla de deduplicación previa al registro/notificación:**
+  Antes de insertar una nueva alerta o de emitir un Overlay sobre la app Android,
+  el backend debe validar que NO exista una alerta procesada con la misma
+  `idempotencyKey` dentro de una **ventana de tiempo parametrizable**
+  (valor por defecto: **15 minutos**, configurable vía `EngineConfig`).
+- **Justificación:** evitar disparos duplicados tras reconexiones de Binance WebSocket
+  o reintentos del motor de escaneo.
+- **Capa técnica:**
+  - Columna `idempotency_key varchar(128) UNIQUE NOT NULL` en `alerts`.
+  - Índice `idx_alerts_idempotency_key_created_at` sobre (`idempotency_key`, `created_at DESC`).
+  - Validación previa con `SELECT 1 ... WHERE created_at > now() - INTERVAL '15 minutes'`.
+  - Si ya existe, descartar silenciosamente (`SKIP`) y NO emitir Overlay.
+- **Idempotencia de esquema:** todas las migraciones deben usar
+  `CREATE ... IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, y sembrados con
+  `INSERT ... ON CONFLICT DO NOTHING` para garantizar re-ejecución segura.
+
+## SISTEMA DE CHECKPOINT DE CONTEXTO PERSISTENTE (docs/CHECKPOINT.md)
+- **Regla de Oro del Agente:** Antes de generar código para cualquier nueva instrucción
+  o módulo, lo PRIMERO que se debe hacer es actualizar `docs/CHECKPOINT.md`
+  reflejando el estado actual del proyecto.
+- **Secciones obligatorias en cada actualización:**
+  1. **Último Estado Completado** — lo que ya está 100 % programado y probado.
+  2. **Trabajo en Progreso (In-Flight)** — la tarea exacta ejecutándose en el turno actual.
+  3. **Pendientes Inmediatos** — el siguiente paso según el itinerario.
+  4. **Decisiones Técnicas Tomadas** — librerías elegidas, esquemas de BD, rutas creadas.
+- **Propósito:** garantizar continuidad del contexto entre turnos y entre agentes
+  que colaboren en el proyecto (especialmente en trabajos en background).
+- **Ubicación:** `docs/CHECKPOINT.md` en la raíz del repositorio.
+- **Política de escritura:** una entrada por turno, fechada (ISO-8601), sin
+  reescritura retroactiva: se añade al final y nunca se borra historial válido.
+
 ## MODO DE TRABAJO E ITINERARIO DE DESARROLLO
 - Desarrollar en pasos incrementales y aislados.
 - Paso 1: Interfaz gráfica y prototipo del Overlay/UI en React Native.
