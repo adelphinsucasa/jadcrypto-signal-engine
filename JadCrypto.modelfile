@@ -52,6 +52,14 @@ a un dispositivo Android.
 - Persistencia y Sonido: alerta con loop continuo de audio y vibración hasta ser descartada.
 - Histórico: alertas guardadas en PostgreSQL y sincronizadas con la vista de historial de la App.
 
+# CONTROL DE EJECUCIÓN DINÁMICO (Engine Switch)
+- El escaneo automático debe poder activarse/desactivarse mediante un parámetro de
+  configuración (`engine_enabled: boolean`).
+- El intervalo de escaneo debe ser configurable por el usuario
+  (`scan_interval_minutes: number`, valor por defecto: 3 minutos).
+- Al desactivar el motor, el servidor debe liberar conexiones de Binance y detener el
+  timer loop sin apagar la API REST.
+
 # MODO DE TRABAJO
 - Desarrollo incremental y aislado.
 - Paso 1: Interfaz gráfica y prototipo del Overlay/UI en React Native.
